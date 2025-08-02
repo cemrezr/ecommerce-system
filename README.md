@@ -4,97 +4,136 @@ A microservices-based e-commerce system built using event-driven architecture an
 
 ---
 
-Services
-1. 🧾 Order Service
-Exposes HTTP API to place or cancel orders.
+## 📦 Services Overview
 
-Publishes order.created or order.cancelled events.
+| Service             | Description                                   |
+|---------------------|-----------------------------------------------|
+| **Order Service**    | Handles order creation and cancellation       |
+| **Inventory Service**| Manages product stock levels                 |
+| **Notification Service** | Sends notifications (e.g. order confirmation) |
 
-Logs events to PostgreSQL (event_logs).
+All services are containerized with **Docker** and use **RabbitMQ** for async messaging. **PostgreSQL** is used for persistent data storage and event logging.
 
-Includes:
+---
 
-Retry logic
+## 🔁 Core Event Flows
 
-Circuit breaker
+### 1. Order Creation
+- HTTP POST to `order-service` → validates stock via `inventory-service`
+- Creates order in DB and publishes `order.created`
+- `inventory-service` consumes event → decrements stock
+- `notification-service` sends confirmation via `order.created`
 
-Dead Letter Queue (DLQ)
+### 2. Order Cancellation
+- HTTP POST to `order-service` → checks existence
+- Marks order as cancelled → publishes `order.cancelled`
+- `inventory-service` consumes event → restores stock
+- `notification-service` sends cancellation alert
 
-Replayer CLI tool (order-replayer) for failed events
+---
 
-2. 📦 Inventory Service
-Listens to order events to update stock.
+## 📨 Event Topics (RabbitMQ)
 
-Updates inventory and logs in stock_logs.
+| Event Type         | Description                    |
+|--------------------|--------------------------------|
+| `order.created`     | Order successfully created     |
+| `order.cancelled`   | Order cancelled                |
+| `order.failed`      | Event publishing failed → DLQ |
 
-Provides HTTP API to create/update products.
+Exchange Type: `topic`  
+Exchange Name: `order.events`  
+DLQ Exchange: `order.dlx` → Queue: `order.failed`
 
-3. ✉️ Notification Service
-Listens to order events and sends email notifications (simulated).
+---
 
-Handles order.created and order.cancelled events.
+## ✅ Features 
 
-🔁 Event Flows
-✅ Order Created
-Client calls POST /orders.
+### 🔄 **Message Processing**
+- **Retries:** All publishers retry 3 times on failure
+- **DLQ:** Failed messages are routed to `order.failed` queue
+- **Idempotency:** `inventory-service` prevents double processing via `stock_logs`
+- **Ordering:** Handled via event timestamps (FIFO queues)
 
-Order Service:
+### 🧠 **Event Handling**
+- **Validation:** Incoming HTTP payloads validated (type, constraints)
+- **Versioning:** `event_version: v1` added to all events
+- **Storage:** All events are logged in PostgreSQL `event_logs`
+- **Replay:** Failed events retried via `order-replayer` tool
 
-Creates order
+### 🔥 **Error Handling**
+- **Circuit Breakers:** Applied to:
+    - `order-service → RabbitMQ publisher`
+    - `order-service → inventory-service HTTP client`
+- **Connection Loss:** Handled via retry logic + exponential backoff
+- **Invalid Formats:** All inputs validated with detailed error responses
 
-Publishes order.created
+---
 
-Logs event
 
-Inventory Service:
+## 🧪 Testing Strategy
 
-Decreases product stock
+### Manual Tests
+You can use `curl`, Postman or HTTP clients to verify flows.
 
-Logs stock change
+#### Create Order
+```bash
 
-Notification Service:
+curl -X POST http://localhost:8081/orders \
+  -H "Content-Type: application/json" \
+  -d '{"user_id": 1, "product_id": 2, "quantity": 1}'
+```
 
-Sends confirmation email
+#### Cancel Order
+```bash
 
-❌ Order Cancelled
-Client calls POST /orders/{id}/cancel.
+curl -X POST http://localhost:8081/orders/1/cancel
+```
 
-Order Service:
+#### Replay Failed Events
+```bash
 
-Cancels order
+cd order-service
+make replay
+```
 
-Publishes order.cancelled
+### Error Scenarios Tested
+- Service unavailability (e.g. kill inventory service)
+- Broken DB connection
+- Circuit breaker tripping
+- Double event delivery (idempotency validation)
 
-Inventory Service:
+---
 
-Increases product stock
+## 🐳 Infrastructure Setup
 
-Notification Service:
+### Prerequisites
+- [Docker + Docker Compose](https://docs.docker.com/get-docker/)
+- Go 1.21+
+- `make` utility
 
-Sends cancellation email
+### Quick Start
+```bash
 
-⚙️ Tech Stack
-Layer	Technology
-Language	Go (Golang)
-Messaging	RabbitMQ (topic + DLQ)
-Database	PostgreSQL
-Logging	zerolog
-Circuit	gobreaker
-Container	Docker, Docker Compose
-HTTP	Gorilla Mux
+# Start dependencies
+docker-compose up -d
 
-🚨 Error Handling Features
-✅ Retry (up to 3 attempts per event)
+# Create DB schema (Postgres)
+cd services/order-service && make migrate-up
+cd services/inventory-service && make migrate-up
 
-✅ DLQ (order.failed queue + order.dlx exchange)
+# Run services manually
+cd services/order-service && make run
+cd services/inventory-service && make run
+cd services/notification-service && make run
+```
 
-✅ Circuit breaker for RabbitMQ publishing
+---
 
-✅ Event replay CLI (order-replayer)
+## 📌 Future Improvements
 
-✅ Structured logging with correlation IDs (optional)
+- 🧪 Unit tests + mocks for handler/repository logic
+- 🔐 Authentication and rate limiting
+- 📬 Email/Slack adapters in notification-service
+- 📊 Centralized logging / observability via Prometheus + Grafana
 
-❌ (Optional) JSON Schema validation for event payloads
-
-❌ (Optional) Idempotency key tracking
-
+---

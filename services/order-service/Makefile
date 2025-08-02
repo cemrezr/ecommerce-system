@@ -5,7 +5,7 @@ MIGRATE_CMD = migrate -path migrations -database $(DB_DSN)
 
 .PHONY: up down version create force drop run build
 
-up:
+migrate-up:
 	$(MIGRATE_CMD) up
 
 down:
