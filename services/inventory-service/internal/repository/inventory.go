@@ -2,8 +2,8 @@ package repository
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
+	"github.com/jmoiron/sqlx"
 )
 
 type InventoryRepository interface {
@@ -13,10 +13,10 @@ type InventoryRepository interface {
 }
 
 type PostgresInventoryRepository struct {
-	db *sql.DB
+	db *sqlx.DB
 }
 
-func NewPostgresInventoryRepository(db *sql.DB) *PostgresInventoryRepository {
+func NewPostgresInventoryRepository(db *sqlx.DB) *PostgresInventoryRepository {
 	return &PostgresInventoryRepository{db: db}
 }
 

@@ -3,7 +3,7 @@ module github.com/cemrezr/ecommerce-system/notification-service
 go 1.23.7
 
 require (
-	github.com/joho/godotenv v1.5.1
+	github.com/cemrezr/ecommerce-system v0.0.0-20250802002814-49458cdb6cd1
 	github.com/rs/zerolog v1.34.0
 	github.com/streadway/amqp v1.1.0
 )

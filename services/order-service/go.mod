@@ -3,11 +3,11 @@ module github.com/cemrezr/ecommerce-system/order-service
 go 1.22.11
 
 require (
+	github.com/cemrezr/ecommerce-system v0.0.0-20250802002814-49458cdb6cd1
 	github.com/go-playground/validator/v10 v10.27.0
 	github.com/gorilla/mux v1.8.1
 	github.com/jmoiron/sqlx v1.4.0
 	github.com/joho/godotenv v1.5.1
-	github.com/lib/pq v1.10.9
 	github.com/rs/zerolog v1.34.0
 	github.com/sony/gobreaker v1.0.0
 	github.com/streadway/amqp v1.1.0

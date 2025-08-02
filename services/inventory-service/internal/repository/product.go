@@ -2,8 +2,8 @@ package repository
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
+	"github.com/jmoiron/sqlx"
 	"time"
 )
 
@@ -23,10 +23,10 @@ type Product struct {
 }
 
 type PostgresProductRepository struct {
-	db *sql.DB
+	db *sqlx.DB
 }
 
-func NewPostgresProductRepository(db *sql.DB) *PostgresProductRepository {
+func NewPostgresProductRepository(db *sqlx.DB) *PostgresProductRepository {
 	return &PostgresProductRepository{db: db}
 }
 

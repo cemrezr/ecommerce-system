@@ -15,7 +15,6 @@ import (
 )
 
 func Run(cfg *config.Config, log zerolog.Logger) {
-	// PostgreSQL
 	db := database.Connect(cfg.DBDSN, log)
 	defer db.Close()
 

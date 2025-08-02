@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/cemrezr/ecommerce-system/pkg/database"
 	"net/http"
 	"time"
 
@@ -20,7 +21,7 @@ import (
 )
 
 func main() {
-	log := logger.New("order-service")
+	log := logger.NewLogger("order-service")
 	cfg := config.LoadConfig()
 
 	db := setupDatabase(cfg, log)
@@ -47,7 +48,7 @@ func main() {
 }
 
 func setupDatabase(cfg *config.Config, log zerolog.Logger) *sqlx.DB {
-	db := repository.ConnectPostgres(cfg.PostgresDSN)
+	db := database.Connect(cfg.PostgresDSN, log)
 	log.Info().Str("component", "postgres").Msg("Connected to PostgreSQL")
 	return db
 }

@@ -7,7 +7,7 @@ import (
 )
 
 func main() {
-	log := logger.New("inventory-service")
+	log := logger.NewLogger("inventory-service")
 	cfg := config.Load()
 	app.Run(cfg, log)
 }

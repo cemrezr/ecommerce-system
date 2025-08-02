@@ -6,18 +6,20 @@ import (
 	"github.com/cemrezr/ecommerce-system/order-service/internal/config"
 	"github.com/cemrezr/ecommerce-system/order-service/internal/event"
 	"github.com/cemrezr/ecommerce-system/order-service/internal/repository"
+	"github.com/cemrezr/ecommerce-system/pkg/database"
 	"github.com/cemrezr/ecommerce-system/pkg/logger"
 	"github.com/cemrezr/ecommerce-system/pkg/rabbitmq"
+
 	"github.com/sony/gobreaker"
 )
 
 func main() {
-	log := logger.New("order-replayer")
+	log := logger.NewLogger("order-replayer")
 	log.Info().Msg("Starting order-replayer")
 
 	cfg := config.LoadConfig()
 
-	db := repository.ConnectPostgres(cfg.PostgresDSN)
+	db := database.Connect(cfg.PostgresDSN, log)
 	defer db.Close()
 
 	eventLogger := repository.NewEventLogRepository(db)
