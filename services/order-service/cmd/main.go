@@ -86,7 +86,7 @@ func setupRouter(orderRepo repository.OrderRepository, publisher *event.Publishe
 	}).Methods("GET")
 
 	router.HandleFunc("/orders", handler.CreateOrder).Methods("POST")
-	router.HandleFunc("/orders/{order_id}/cancel", handler.CancelOrder).Methods("POST")
+	router.HandleFunc("/orders/{id}/cancel", handler.CancelOrder).Methods("POST")
 
 	return router
 }

@@ -3,7 +3,6 @@ package event
 import (
 	"context"
 	"encoding/json"
-
 	"github.com/cemrezr/ecommerce-system/inventory-service/internal/model"
 	"github.com/cemrezr/ecommerce-system/inventory-service/internal/repository"
 	"github.com/rs/zerolog"
@@ -51,6 +50,11 @@ func (c *Consumer) StartConsuming(ctx context.Context) error {
 					continue
 				}
 
+				if c.repo.HasAlreadyProcessed(order.ID, order.ProductID, "order.created") {
+					c.log.Warn().Int64("order_id", order.ID).Msg("💡 Duplicate order detected — skipping")
+					continue
+				}
+
 				c.log.Info().
 					Str("event", msg.Type).
 					Int64("product_id", order.ProductID).
@@ -62,7 +66,7 @@ func (c *Consumer) StartConsuming(ctx context.Context) error {
 					continue
 				}
 
-				if err := c.repo.LogStockChange(ctx, order.ProductID, -order.Quantity, "order.created"); err != nil {
+				if err := c.repo.LogStockChange(ctx, order.ProductID, -order.Quantity, "order.created", &order.ID); err != nil {
 					c.log.Warn().Err(err).Msg("⚠Failed to log stock change for order.created")
 				}
 
@@ -73,13 +77,26 @@ func (c *Consumer) StartConsuming(ctx context.Context) error {
 
 			case "order.cancelled":
 				var payload struct {
-					OrderID   int64 `json:"order_id"`
+					OrderID   int64 `json:"id"`
 					ProductID int64 `json:"product_id"`
 					Quantity  int   `json:"quantity"`
 				}
 
 				if err := json.Unmarshal(msg.Body, &payload); err != nil {
 					c.log.Error().Err(err).Msg("Failed to parse order.cancelled payload")
+					continue
+				}
+
+				if !c.repo.HasOrderCreatedLog(payload.OrderID, payload.ProductID) {
+					c.log.Warn().
+						Int64("order_id", payload.OrderID).
+						Int64("product_id", payload.ProductID).
+						Msg("Cancelled event received without a matching order.created log — skipping")
+					continue
+				}
+
+				if c.repo.HasAlreadyProcessed(payload.OrderID, payload.ProductID, "order.cancelled") {
+					c.log.Warn().Int64("order_id", payload.OrderID).Msg("💡 Duplicate cancelled order detected — skipping")
 					continue
 				}
 
@@ -95,7 +112,7 @@ func (c *Consumer) StartConsuming(ctx context.Context) error {
 					continue
 				}
 
-				if err := c.repo.LogStockChange(ctx, payload.ProductID, payload.Quantity, "order.cancelled"); err != nil {
+				if err := c.repo.LogStockChange(ctx, payload.ProductID, payload.Quantity, "order.cancelled", &payload.OrderID); err != nil {
 					c.log.Warn().Err(err).Msg("Failed to log stock change for order.cancelled")
 				}
 

@@ -8,8 +8,10 @@ import (
 
 type InventoryRepository interface {
 	DecreaseStock(ctx context.Context, productID int64, quantity int) error
-	LogStockChange(ctx context.Context, productID int64, change int, reason string) error
 	IncreaseStock(ctx context.Context, productID int64, quantity int) error
+	LogStockChange(ctx context.Context, productID int64, change int, reason string, orderID *int64) error
+	HasAlreadyProcessed(orderID int64, productID int64, reason string) bool
+	HasOrderCreatedLog(orderID int64, productID int64) bool
 }
 
 type PostgresInventoryRepository struct {
@@ -35,12 +37,12 @@ func (r *PostgresInventoryRepository) DecreaseStock(ctx context.Context, product
 	return nil
 }
 
-func (r *PostgresInventoryRepository) LogStockChange(ctx context.Context, productID int64, change int, reason string) error {
+func (r *PostgresInventoryRepository) LogStockChange(ctx context.Context, productID int64, change int, reason string, orderID *int64) error {
 	query := `
-		INSERT INTO stock_logs (product_id, change, reason)
-		VALUES ($1, $2, $3)
+		INSERT INTO stock_logs (product_id, change, reason, order_id)
+		VALUES ($1, $2, $3, $4)
 	`
-	_, err := r.db.ExecContext(ctx, query, productID, change, reason)
+	_, err := r.db.ExecContext(ctx, query, productID, change, reason, orderID)
 	if err != nil {
 		return fmt.Errorf("failed to insert stock log: %w", err)
 	}
@@ -64,4 +66,28 @@ func (r *PostgresInventoryRepository) IncreaseStock(ctx context.Context, product
 	}
 
 	return nil
+}
+
+func (r *PostgresInventoryRepository) HasAlreadyProcessed(orderID int64, productID int64, reason string) bool {
+	var exists bool
+	query := `
+		SELECT EXISTS (
+			SELECT 1 FROM stock_logs
+			WHERE order_id = $1 AND product_id = $2 AND reason = $3
+		)
+	`
+	err := r.db.QueryRow(query, orderID, productID, reason).Scan(&exists)
+	return err == nil && exists
+}
+
+func (r *PostgresInventoryRepository) HasOrderCreatedLog(orderID int64, productID int64) bool {
+	var exists bool
+	query := `
+		SELECT EXISTS (
+			SELECT 1 FROM stock_logs
+			WHERE order_id = $1 AND product_id = $2 AND reason = 'order.created'
+		)
+	`
+	err := r.db.QueryRow(query, orderID, productID).Scan(&exists)
+	return err == nil && exists
 }

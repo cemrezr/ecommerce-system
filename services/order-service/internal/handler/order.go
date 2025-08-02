@@ -2,6 +2,8 @@ package handler
 
 import (
 	"encoding/json"
+	"fmt"
+	"github.com/gorilla/mux"
 	"net/http"
 	"strconv"
 
@@ -10,7 +12,6 @@ import (
 	"github.com/cemrezr/ecommerce-system/order-service/internal/model"
 	"github.com/cemrezr/ecommerce-system/order-service/internal/repository"
 	"github.com/go-playground/validator/v10"
-	"github.com/gorilla/mux"
 	"github.com/rs/zerolog"
 )
 
@@ -117,32 +118,43 @@ func (h *OrderHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *OrderHandler) CancelOrder(w http.ResponseWriter, r *http.Request) {
-	idStr := mux.Vars(r)["order_id"]
-	orderID, err := strconv.ParseInt(idStr, 10, 64)
-	if err != nil {
-		h.log.Warn().Str("order_id", idStr).Msg("Invalid order_id format")
-		http.Error(w, "Invalid order_id", http.StatusBadRequest)
+	orderIDStr := mux.Vars(r)["id"]
+	if orderIDStr == "" {
+		http.Error(w, "missing order id", http.StatusBadRequest)
 		return
 	}
 
-	ctx := r.Context()
-	order, err := h.Repo.GetByID(ctx, orderID)
+	orderID, err := strconv.ParseInt(orderIDStr, 10, 64)
 	if err != nil {
-		h.log.Error().Err(err).Int64("order_id", orderID).Msg("Order not found")
-		http.Error(w, "Order not found", http.StatusNotFound)
+		http.Error(w, "invalid order id", http.StatusBadRequest)
 		return
 	}
 
-	if err := h.Repo.Cancel(ctx, orderID); err != nil {
+	order, err := h.Repo.GetByID(r.Context(), orderID)
+	if err != nil {
+		h.log.Error().Err(err).Int64("order_id", orderID).Msg("Failed to fetch order")
+		http.Error(w, "order not found", http.StatusBadRequest)
+		return
+	}
+
+	err = h.Repo.Cancel(r.Context(), orderID)
+	if err != nil {
 		h.log.Error().Err(err).Int64("order_id", orderID).Msg("Failed to cancel order")
-		http.Error(w, "Cancel failed", http.StatusInternalServerError)
+		http.Error(w, "failed to cancel order", http.StatusInternalServerError)
 		return
 	}
 
 	if err := h.Publisher.PublishOrderCancelled(order); err != nil {
-		h.log.Error().Err(err).Int64("order_id", orderID).Msg("Failed to publish order.cancelled event")
+		h.log.Error().Err(err).Msg("Failed to publish order.cancelled event")
+		http.Error(w, "failed to notify cancellation", http.StatusInternalServerError)
+		return
 	}
 
-	h.log.Info().Int64("order_id", orderID).Msg("✅ Order cancelled and event published")
+	h.log.Info().
+		Int64("order_id", order.ID).
+		Int64("product_id", order.ProductID).
+		Msg("Order cancelled and event published")
+
 	w.WriteHeader(http.StatusOK)
+	fmt.Fprintf(w, "Order %d cancelled", orderID)
 }

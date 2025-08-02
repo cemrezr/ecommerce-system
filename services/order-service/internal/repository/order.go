@@ -14,6 +14,7 @@ type OrderRepository interface {
 	Create(ctx context.Context, order *model.Order) error
 	Cancel(ctx context.Context, orderID int64) error
 	GetByID(ctx context.Context, id int64) (*model.Order, error)
+	OrderExists(ctx context.Context, orderID int64) (bool, error)
 }
 
 type orderRepository struct {
@@ -66,12 +67,13 @@ func (r *orderRepository) Cancel(ctx context.Context, orderID int64) error {
 		return fmt.Errorf("order not found or already cancelled")
 	}
 
+	log.Info().Str("operation", "CancelOrder").Int64("order_id", orderID).Msg("Order cancelled")
 	return nil
 }
 
 func (r *orderRepository) GetByID(ctx context.Context, id int64) (*model.Order, error) {
 	var order model.Order
-	query := `SELECT id, user_id, product_id, quantity FROM orders WHERE id = $1`
+	query := `SELECT id, user_id, product_id, quantity, status, created_at FROM orders WHERE id = $1`
 
 	err := r.db.GetContext(ctx, &order, query, id)
 	if err != nil {
@@ -79,4 +81,14 @@ func (r *orderRepository) GetByID(ctx context.Context, id int64) (*model.Order, 
 	}
 
 	return &order, nil
+}
+
+func (r *orderRepository) OrderExists(ctx context.Context, orderID int64) (bool, error) {
+	var exists bool
+	query := `SELECT EXISTS(SELECT 1 FROM orders WHERE id = $1)`
+	err := r.db.QueryRowContext(ctx, query, orderID).Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("failed to check order existence: %w", err)
+	}
+	return exists, nil
 }
