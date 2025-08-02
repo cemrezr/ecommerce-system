@@ -1,9 +1,10 @@
-module github.com/cemrezr/ecommerce-system
+module github.com/cemrezr/ecommerce-system/inventory-service
 
-go 1.22.11
+go 1.23.7
 
 require (
-	github.com/jmoiron/sqlx v1.4.0
+	github.com/gorilla/mux v1.8.1
+	github.com/joho/godotenv v1.5.1
 	github.com/lib/pq v1.10.9
 	github.com/rs/zerolog v1.34.0
 	github.com/streadway/amqp v1.1.0

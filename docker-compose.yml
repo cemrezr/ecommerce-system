@@ -1,0 +1,89 @@
+version: '3.8'
+
+services:
+  postgres:
+    build:
+      context: ./init/postgres-init
+    container_name: ecommerce-postgres
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: pass
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: ecommerce-rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_running"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
+  adminer:
+    image: adminer
+    container_name: ecommerce-adminer
+    restart: always
+    ports:
+      - "8080:8080"
+
+  order-service:
+    build:
+      context: ./services/order-service
+    container_name: order-service
+    depends_on:
+      - postgres
+      - rabbitmq
+    ports:
+      - "8081:8081"
+    environment:
+      POSTGRES_DSN: postgres://user:pass@postgres:5432/orders?sslmode=disable
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      RABBITMQ_EXCHANGE: order.events
+      RABBITMQ_QUEUE: order.created
+      INVENTORY_SERVICE_URL: http://inventory-service:8082
+    restart: on-failure
+
+  inventory-service:
+    build:
+      context: ./services/inventory-service
+    container_name: inventory-service
+    depends_on:
+      - postgres
+      - rabbitmq
+    ports:
+      - "8082:8082"
+    environment:
+      DB_DSN: postgres://user:pass@postgres:5432/inventory?sslmode=disable
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      RABBITMQ_EXCHANGE: order.events
+      RABBITMQ_QUEUE: inventory.order.queue
+    restart: on-failure
+
+  notification-service:
+    build:
+      context: ./services/notification-service
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      RABBITMQ_EXCHANGE: order.events
+      RABBITMQ_QUEUE: notification.order.queue
+    ports:
+      - "8083:8083"
+
+
+volumes:
+  pgdata:
+  rabbitmq_data:
