@@ -82,7 +82,7 @@ You can use `curl`, Postman or HTTP clients to verify flows.
 curl --location --request POST 'http://localhost:8082/products' \
 --header 'Content-Type: application/json' \
 --data-raw '{
-  "product_name": "iPhone 15",
+  "product_name": "iPhone",
   "stock": 50
 }'
 ```
