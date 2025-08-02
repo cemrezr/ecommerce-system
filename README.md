@@ -75,12 +75,24 @@ DLQ Exchange: `order.dlx` → Queue: `order.failed`
 ### Manual Tests
 You can use `curl`, Postman or HTTP clients to verify flows.
 
+
+#### Create Product
+```bash
+
+curl --location --request POST 'http://localhost:8082/products' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+  "product_name": "iPhone 15",
+  "stock": 50
+}'
+```
+
 #### Create Order
 ```bash
 
 curl -X POST http://localhost:8081/orders \
   -H "Content-Type: application/json" \
-  -d '{"user_id": 1, "product_id": 2, "quantity": 1}'
+  -d '{"user_id": 1, "product_id": 1, "quantity": 1}'
 ```
 
 #### Cancel Order
@@ -126,14 +138,5 @@ cd services/order-service && make run
 cd services/inventory-service && make run
 cd services/notification-service && make run
 ```
-
----
-
-## 📌 Future Improvements
-
-- 🧪 Unit tests + mocks for handler/repository logic
-- 🔐 Authentication and rate limiting
-- 📬 Email/Slack adapters in notification-service
-- 📊 Centralized logging / observability via Prometheus + Grafana
 
 ---
