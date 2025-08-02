@@ -15,12 +15,7 @@ type Consumer struct {
 }
 
 func NewConsumer(ch *amqp.Channel, queue string, log zerolog.Logger, dispatcher *Dispatcher) *Consumer {
-	return &Consumer{
-		ch:         ch,
-		queue:      queue,
-		log:        log,
-		dispatcher: dispatcher,
-	}
+	return &Consumer{ch: ch, queue: queue, log: log, dispatcher: dispatcher}
 }
 
 func (c *Consumer) StartConsuming(ctx context.Context) error {
@@ -34,38 +29,31 @@ func (c *Consumer) StartConsuming(ctx context.Context) error {
 		nil,
 	)
 	if err != nil {
-		c.log.Error().Err(err).Msg("Failed to register consumer")
+		c.log.Error().Err(err).Msg("Failed to start consuming messages")
 		return err
 	}
 
-	c.log.Info().Str("queue", c.queue).Msg("📥 Notification consumer started")
+	c.log.Info().Str("queue", c.queue).Msg("Consumer started")
 
 	go func() {
 		for msg := range msgs {
-			c.log.Info().
-				Str("event_type", msg.Type).
-				RawJSON("body", msg.Body).
-				Msg("📨 Received message")
+			c.log.Debug().
+				Str("type", msg.Type).
+				Msg("Received message")
 
-			if err := c.dispatcher.Dispatch(msg.Type, msg.Body); err != nil {
-				c.log.Error().
-					Err(err).
-					Str("event_type", msg.Type).
-					Msg("Dispatch failed")
-
-				if err := msg.Nack(false, false); err != nil {
-					c.log.Error().Err(err).Msg("Failed to NACK message")
-				}
+			err := c.dispatcher.Dispatch(msg.Type, msg.Body)
+			if err != nil {
+				c.log.Error().Err(err).Str("type", msg.Type).Msg("Failed to process event — NACKing")
+				_ = msg.Nack(false, true)
 				continue
 			}
 
-			if err := msg.Ack(false); err != nil {
-				c.log.Error().Err(err).Msg("Failed to ACK message")
-			}
+			_ = msg.Ack(false)
+			c.log.Info().Str("type", msg.Type).Msg("✅ Event processed and ACKed")
 		}
 	}()
 
 	<-ctx.Done()
-	c.log.Info().Msg("Consumer shutdown signal received")
+	c.log.Info().Msg("Consumer shutting down")
 	return nil
 }
