@@ -36,7 +36,7 @@ func main() {
 
 	conn, ch, err := rabbitmq.Connect(cfg.RabbitMQURL, log)
 	if err != nil {
-		log.Fatal().Err(err).Msg("❌ Failed to connect to RabbitMQ")
+		log.Fatal().Err(err).Msg("Failed to connect to RabbitMQ")
 	}
 	defer conn.Close()
 	defer ch.Close()
